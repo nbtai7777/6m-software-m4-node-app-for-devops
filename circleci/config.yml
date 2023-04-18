@@ -1,6 +1,7 @@
 version: 2.1
 orbs:
   node: circleci/node@5.0.1
+  docker: circleci/docker@2.1.4
 jobs:
   build:
     docker:
@@ -22,6 +23,17 @@ jobs:
       - run: |
           echo “Running tests...”
           npm run test
+  
+  build-and-push:
+    executor: docker/docker
+    steps:
+      - setup_remote_docker
+      - checkout
+      - docker/check
+      - docker/build:
+          image: nbtai7777/education-space
+      - docker/push:
+          image: nbtai7777/education-space
 
 workflows:
   simple_workflow:
@@ -30,3 +42,6 @@ workflows:
       - test:
           requires:
             - build
+      - build-and-push:
+          requires:
+            - test
