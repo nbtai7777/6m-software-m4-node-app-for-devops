@@ -14,50 +14,59 @@ jobs:
       - run: |
           echo Installing dependencies...”
           npm install
-  test:
+jobs:
+  build:
     docker:
-      - image: cimg/node:16.10
+      - image: cimg/node:lts
     steps:
       - checkout
-      - node/install-packages:
-          pkg-manager: npm
-      - run: |
-          echo “Running tests...”
-          npm run test
-  
-  build-and-push:
-    executor: docker/docker
-    steps:
-      - setup_remote_docker
-      - checkout
-      - docker/check
-      - docker/build:
-          image: nbtai7777/education-space
-      - docker/push:
-          image: nbtai7777/education-space
-  deploy:
-    docker:
-        - image: cimg/node:16.10
-    steps:
-        - setup_remote_docker      
-        - heroku/install
-        - checkout
-        - run:
-            name: Heroku Container Push
-            command: | 
-                heroku container:login
-                heroku container:push web -a nbtai7777
-                heroku container:release web -a nbtai7777
+      - run: npm ci
+      - snyk/install
+      - run:
+          command: snyk version
+          name: Which version of snyk is installed
+      - run:
+          command: snyk code test
+          name: Run code scan
+          
+jobs:
+    scan:
+        docker:
+            - image: cimg/node:16.10
+        steps:
+            - checkout
+            - setup_remote_docker      
+            - docker/check
+            - docker/build:
+                image: nbtai7777/education-space
+            - snyk/scan: 
+                docker-image-name: nbtai7777/education-space
+
 workflows:
   simple_workflow:
     jobs:
-      - build
+      - build:
+          filters:
+            branches:
+              only: main
       - test:
           requires:
+            - build 
+          filters:
+            branches:
+              only: main    
+
+    # The scan job
+      - scan:
+          requires:
             - build
-      - build-and-push:
-          requires:
-            - test
-      - deploy:
-          requires:
-            - build-and-push
+          filters:
+            branches:
+              only: main
+    # The scan job
+      - scan:
+        requires:
+          -build
+          filters:
+            branches:
+              only: main     
